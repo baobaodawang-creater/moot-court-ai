@@ -1,0 +1,36 @@
+# Environment
+.env
+*.env.local
+
+# API Keys (never commit these!)
+agents/*/agent/auth-profiles.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OpenClaw runtime
+.openclaw/
+memory/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+/tmp/
+
+# Case data (may contain sensitive info)
+# Uncomment if you don't want to commit real case data:
+# agents/plaintiff/workspace/complaint.md
+# agents/plaintiff/workspace/evidence/
+# agents/defendant/workspace/defense.md
+# agents/defendant/workspace/evidence/

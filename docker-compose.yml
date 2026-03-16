@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  openclaw-gateway:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: moot-court-gateway
+    restart: unless-stopped
+    ports:
+      - "18789:18789"
+    volumes:
+      - ./openclaw.json:/home/node/.openclaw/openclaw.json:ro
+      - ./agents/clerk/agent:/home/node/.openclaw/agents/clerk/agent
+      - ./agents/plaintiff/agent:/home/node/.openclaw/agents/plaintiff/agent
+      - ./agents/defendant/agent:/home/node/.openclaw/agents/defendant/agent
+      - ./agents/judge/agent:/home/node/.openclaw/agents/judge/agent
+      - ./agents/clerk/workspace:/home/node/moot-court-ai/agents/clerk/workspace
+      - ./agents/plaintiff/workspace:/home/node/moot-court-ai/agents/plaintiff/workspace
+      - ./agents/defendant/workspace:/home/node/moot-court-ai/agents/defendant/workspace
+      - ./agents/judge/workspace:/home/node/moot-court-ai/agents/judge/workspace
+      - ./workflows:/home/node/.openclaw/workflows
+      - openclaw-memory:/home/node/.openclaw/memory
+    env_file:
+      - .env
+    environment:
+      - OPENCLAW_TZ=Asia/Shanghai
+
+volumes:
+  openclaw-memory:

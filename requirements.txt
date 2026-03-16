@@ -1,0 +1,10 @@
+# Moot Court AI - Python 依赖
+# 用于法律知识库入库脚本
+
+lancedb>=0.6.0
+sentence-transformers>=2.5.0
+transformers>=4.40.0
+torch>=2.2.0
+pandas>=2.0.0
+tqdm>=4.65.0
+python-dotenv>=1.0.0
