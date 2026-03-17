@@ -35,11 +35,8 @@ docker compose up -d
 # 4. 查看日志确认启动成功
 docker compose logs -f --tail 20
 
-# 5. 获取 Dashboard token
-docker compose exec moot-court-gateway node dist/index.js dashboard --no-open
-
-# 6. 浏览器打开显示的 URL
-# 通常是 http://localhost:18789?token=xxxxx
+# 5. 浏览器访问
+# http://localhost:18789
 ```
 
 ### 停止与重启
@@ -88,19 +85,35 @@ cd moot-court-ai
 cp .env.example .env
 nano .env
 
-# 3. 运行初始化脚本
-chmod +x scripts/setup.sh scripts/init-case.sh
+# 3. 赋予脚本执行权限
+chmod +x scripts/setup.sh scripts/setup-auth.sh scripts/init-case.sh scripts/run-trial.sh
+
+# 4. 初始化 OpenClaw 目录结构
 ./scripts/setup.sh
 
-# 4. （可选）构建法律知识库
+# 5. 生成 4 个 agent 的鉴权文件
+./scripts/setup-auth.sh
+
+# 6. 分发案件材料（示例案件）
+./scripts/init-case.sh test-cases/contract-dispute/
+
+# 7. （可选）构建法律知识库
 pip install -r requirements.txt
 python3 scripts/ingest-law.py --input ./laws/
 
-# 5. 启动 Gateway
-openclaw gateway --port 18789
+# 8. 运行庭审工作流（命令行）
+./scripts/run-trial.sh contract-dispute
 
-# 6. 打开浏览器
-openclaw dashboard
+# 9. 查看输出
+# output/contract-dispute-judgment-*.md
+# output/contract-dispute-raw-*.log
+```
+
+如需 WebChat 交互模式，再单独启动：
+
+```bash
+openclaw gateway --port 18789
+# 浏览器访问 http://localhost:18789
 ```
 
 ---
@@ -212,7 +225,14 @@ A: auth-profiles.json 格式不对。必须使用 `version/profiles` 结构：
   }
 }
 ```
-运行 `./scripts/setup.sh` 会自动生成正确格式。
+运行 `./scripts/setup-auth.sh` 会自动生成正确格式。
+
+### Q: 执行 run-trial.sh 时提示找不到 lobster 命令？
+A: 先确认本机已安装并可执行 OpenClaw/Lobster 相关命令，再重新执行：
+```bash
+openclaw --version
+```
+如果你只使用 Docker 模式，可使用 WebChat 触发庭审流程。
 
 ### Q: LanceDB 检索报维度错误？
 A: 入库和检索必须使用同一 embedding 模型。默认使用 `BAAI/bge-small-zh-v1.5`（512维）。如果 OpenClaw 的 memory-lancedb 插件使用了不同的 embedding，需要在 `openclaw.json` 中配置对齐。

@@ -57,19 +57,28 @@ pip install -r requirements.txt
 cp .env.example .env
 # 编辑 .env 填入你的 API Keys
 
-# 3. 初始化 OpenClaw Agents
-chmod +x scripts/setup.sh
+# 3. 初始化 OpenClaw 目录结构
+chmod +x scripts/setup.sh scripts/setup-auth.sh scripts/init-case.sh scripts/run-trial.sh
 ./scripts/setup.sh
 
-# 4. 用测试案件试跑
+# 4. 生成 4 个 agent 的 auth-profiles.json
+./scripts/setup-auth.sh
+
+# 5. 分发测试案件材料到各 agent workspace
 ./scripts/init-case.sh test-cases/contract-dispute/
 
-# 5. 启动 Gateway
-openclaw gateway --port 18789
+# 6. 直接运行庭审工作流（命令行模式）
+./scripts/run-trial.sh contract-dispute
 
-# 6. 打开浏览器
-# http://localhost:18789
-# 在 WebChat 中输入: "启动模拟法庭"
+# 7. 查看结果
+# output/contract-dispute-judgment-*.md
+```
+
+如需 WebChat 交互模式，再单独启动：
+
+```bash
+openclaw gateway --port 18789
+# 浏览器访问 http://localhost:18789
 ```
 
 ### Docker 部署（推荐生产环境）
@@ -127,6 +136,7 @@ moot-court-ai/
 │   ├── setup.sh                       # 一键初始化
 │   ├── setup-auth.sh                  # API Key 分发
 │   ├── init-case.sh                   # 案件材料初始化
+│   ├── run-trial.sh                   # 命令行启动庭审并导出判决书
 │   └── ingest-law.py                  # 法律知识库入库
 │
 ├── laws/                              # 法律知识库源文件

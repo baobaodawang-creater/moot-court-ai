@@ -13,8 +13,7 @@ steps:
       openclaw.invoke --tool llm-task --action json
       --agent clerk
       --args-json '{
-        "prompt": "你是书记员。请根据以下案件概要宣布开庭，核对当事人，宣布法庭纪律，然后请原告陈述诉讼请求。严格使用书记员标准口令。",
-        "input": {"case_brief": "'"$(cat ${case_brief_path})"'"},
+        "prompt": "你是书记员。请宣布开庭，核对当事人，宣布法庭纪律，然后请原告陈述诉讼请求。请优先参考你工作区中的 case-brief.md；若该文件缺失，使用通用模板保守开场，不要编造新事实。严格使用书记员标准口令。",
         "schema": {
           "type": "object",
           "properties": {
@@ -85,15 +84,33 @@ steps:
     args:
       plaintiff_complaint: $plaintiff_complaint.stdout
       defendant_defense: $defendant_defense.stdout
-      round_number: "1"
     loop:
       max_iterations: 3
       condition: >
         echo "$LOBSTER_LOOP_JSON" | python3 -c "
         import json,sys
+        def parse_json_like(value):
+          if isinstance(value, dict):
+            return value
+          if isinstance(value, str):
+            try:
+              return json.loads(value)
+            except Exception:
+              return {}
+          return {}
+
         data = json.load(sys.stdin)
-        no_more = data.get('no_more_evidence', False)
-        sys.exit(1 if no_more else 0)
+        round_data = parse_json_like(data)
+
+        pe = parse_json_like(round_data.get('plaintiff_evidence', {}))
+        de = parse_json_like(round_data.get('defendant_evidence', {}))
+        px = parse_json_like(round_data.get('plaintiff_cross_exam', {}))
+        plaintiff_done = bool(pe.get('no_more_evidence')) or bool(px.get('no_more_evidence'))
+        defendant_done = bool(de.get('no_more_evidence'))
+        global_done = bool(round_data.get('no_more_evidence'))
+
+        stop = global_done or (plaintiff_done and defendant_done)
+        sys.exit(1 if stop else 0)
         "
 
   # ══════════════════════════════════════

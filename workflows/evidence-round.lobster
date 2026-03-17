@@ -2,7 +2,6 @@ name: evidence-round
 args:
   - plaintiff_complaint
   - defendant_defense
-  - round_number
 
 steps:
   - id: plaintiff_evidence
@@ -10,7 +9,7 @@ steps:
       openclaw.invoke --tool llm-task --action json
       --agent plaintiff
       --args-json '{
-        "prompt": "举证环节第${round_number}轮。请从工作区 evidence/ 目录中选择证据出示，说明：证据名称、证据类型（书证/物证/电子数据等）、证明目的。如果没有更多证据，明确表示举证完毕。",
+        "prompt": "现在进入当前轮次的原告举证。请从工作区 evidence/ 目录中选择尚未出示的证据，说明：证据名称、证据类型（书证/物证/电子数据等）、证明目的。如果没有更多证据，明确表示举证完毕。",
         "schema": {
           "type": "object",
           "properties": {
@@ -50,7 +49,7 @@ steps:
       openclaw.invoke --tool llm-task --action json
       --agent defendant
       --args-json '{
-        "prompt": "轮到被告举证。请从工作区 evidence/ 中选择反证出示。如果没有更多证据，明确表示举证完毕。",
+        "prompt": "轮到被告举证。请从工作区 evidence/ 中选择尚未出示的反证。如果没有更多证据，明确表示举证完毕。",
         "schema": {
           "type": "object",
           "properties": {
