@@ -5,6 +5,9 @@ services:
     image: ghcr.io/openclaw/openclaw:latest
     container_name: moot-court-gateway
     restart: unless-stopped
+    user: root
+    command: >
+      sh -lc "npm install -g @openclaw/lobster && exec openclaw gateway --port 18789"
     ports:
       - "18789:18789"
     volumes:

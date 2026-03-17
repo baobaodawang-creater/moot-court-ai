@@ -1,32 +1,138 @@
 {
   "gateway": {
     "port": 18789,
-    "bind": "127.0.0.1",
-    "auth": {
-      "mode": "token"
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:18789",
+        "http://127.0.0.1:18789",
+        "http://localhost:18899",
+        "http://127.0.0.1:18899"
+      ]
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
     }
   },
-
   "models": {
     "providers": {
       "custom-api-deepseek-com": {
         "baseUrl": "https://api.deepseek.com/v1",
-        "apiKey": "${DEEPSEEK_API_KEY}"
+        "apiKey": "${DEEPSEEK_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "name": "DeepSeek V3"
+          },
+          {
+            "id": "deepseek-reasoner",
+            "name": "DeepSeek R1"
+          }
+        ]
       },
       "custom-api-dashscope": {
         "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "apiKey": "${DASHSCOPE_API_KEY}"
+        "apiKey": "${DASHSCOPE_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen-max",
+            "name": "Qwen Max"
+          }
+        ]
       }
     }
   },
-
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "custom-api-deepseek-com/deepseek-chat"
+      }
+    },
+    "list": [
+      {
+        "id": "clerk",
+        "name": "书记员",
+        "default": true,
+        "workspace": "~/moot-court-ai/agents/clerk/workspace",
+        "agentDir": "~/.openclaw/agents/clerk/agent",
+        "model": "custom-api-deepseek-com/deepseek-chat",
+        "subagents": {
+          "allowAgents": [
+            "plaintiff",
+            "defendant",
+            "judge"
+          ]
+        },
+        "tools": {
+          "allow": [
+            "lobster",
+            "llm-task"
+          ]
+        }
+      },
+      {
+        "id": "plaintiff",
+        "name": "原告律师",
+        "workspace": "~/moot-court-ai/agents/plaintiff/workspace",
+        "agentDir": "~/.openclaw/agents/plaintiff/agent",
+        "model": "custom-api-deepseek-com/deepseek-reasoner",
+        "tools": {
+          "deny": [
+            "lobster"
+          ]
+        }
+      },
+      {
+        "id": "defendant",
+        "name": "被告律师",
+        "workspace": "~/moot-court-ai/agents/defendant/workspace",
+        "agentDir": "~/.openclaw/agents/defendant/agent",
+        "model": "custom-api-dashscope/qwen-max",
+        "tools": {
+          "deny": [
+            "lobster"
+          ]
+        }
+      },
+      {
+        "id": "judge",
+        "name": "法官",
+        "workspace": "~/moot-court-ai/agents/judge/workspace",
+        "agentDir": "~/.openclaw/agents/judge/agent",
+        "model": "custom-api-deepseek-com/deepseek-reasoner",
+        "tools": {
+          "allow": [
+            "lobster",
+            "llm-task"
+          ]
+        }
+      }
+    ]
+  },
+  "session": {
+    "scope": "per-sender"
+  },
+  "tools": {
+    "agentToAgent": {
+      "enabled": true,
+      "allow": [
+        "clerk",
+        "plaintiff",
+        "defendant",
+        "judge"
+      ]
+    }
+  },
   "plugins": {
     "entries": {
       "memory-lancedb": {
-        "enabled": true,
-        "config": {
-          "db": "~/.openclaw/memory/lancedb"
-        }
+        "enabled": false
       },
       "llm-task": {
         "enabled": true
@@ -35,67 +141,5 @@
         "enabled": true
       }
     }
-  },
-
-  "tools": {
-    "agentToAgent": {
-      "enabled": false
-    }
-  },
-
-  "session": {
-    "scope": "per-sender"
-  },
-
-  "agents": {
-    "defaults": {
-      "model": "custom-api-deepseek-com/deepseek-chat"
-    },
-    "list": [
-      {
-        "id": "clerk",
-        "name": "书记员",
-        "model": "custom-api-deepseek-com/deepseek-chat",
-        "agentDir": "~/.openclaw/agents/clerk/agent",
-        "workspace": "~/moot-court-ai/agents/clerk/workspace",
-        "tools": {
-          "allow": ["lobster", "llm-task"]
-        }
-      },
-      {
-        "id": "plaintiff",
-        "name": "原告律师",
-        "model": "custom-api-deepseek-com/deepseek-reasoner",
-        "agentDir": "~/.openclaw/agents/plaintiff/agent",
-        "workspace": "~/moot-court-ai/agents/plaintiff/workspace",
-        "tools": {
-          "deny": ["lobster"]
-        }
-      },
-      {
-        "id": "defendant",
-        "name": "被告律师",
-        "model": "custom-api-dashscope/qwen-max",
-        "agentDir": "~/.openclaw/agents/defendant/agent",
-        "workspace": "~/moot-court-ai/agents/defendant/workspace",
-        "tools": {
-          "deny": ["lobster"]
-        }
-      },
-      {
-        "id": "judge",
-        "name": "法官",
-        "model": "custom-api-deepseek-com/deepseek-reasoner",
-        "agentDir": "~/.openclaw/agents/judge/agent",
-        "workspace": "~/moot-court-ai/agents/judge/workspace",
-        "tools": {
-          "allow": ["lobster", "llm-task", "memory-lancedb"]
-        }
-      }
-    ]
-  },
-
-  "channels": {
-    "webchat": {}
   }
 }
