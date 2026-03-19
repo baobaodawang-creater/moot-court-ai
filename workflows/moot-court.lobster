@@ -4,150 +4,287 @@ args:
   - case_brief_path
 
 steps:
-  # ══════════════════════════════════════
-  # Phase 1: 开庭与诉辩交换
-  # ══════════════════════════════════════
-
+  # Phase 1: 庭前准备
   - id: clerk_opening
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent clerk
       --args-json '{
-        "prompt": "你是书记员。请宣布开庭，核对当事人，宣布法庭纪律，然后请原告陈述诉讼请求。请优先参考你工作区中的 case-brief.md；若该文件缺失，使用通用模板保守开场，不要编造新事实。严格使用书记员标准口令。",
+        "prompt": "你是书记员。请宣布开庭，说明案由，并宣布法庭纪律。请保持庄重、简洁。",
         "schema": {
           "type": "object",
           "properties": {
-            "opening_statement": {"type": "string"},
-            "phase": {"type": "string"}
+            "statement": {"type": "string"}
           },
-          "required": ["opening_statement", "phase"]
+          "required": ["statement"]
         }
       }'
 
-  - id: plaintiff_complaint
+  - id: clerk_identity_check
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "继续庭前准备。请在上一段开庭发言基础上，完成原告、被告身份核对与到庭情况确认。",
+        "input": {"previous_agent_output": "$clerk_opening.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $clerk_opening.stdout
+
+  - id: clerk_rights_notice
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "请在上一段身份核对之后，告知当事人诉讼权利义务，并宣布进入诉辩交换阶段。",
+        "input": {"previous_agent_output": "$clerk_identity_check.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $clerk_identity_check.stdout
+
+  # Phase 2: 诉辩交换
+  - id: clerk_phase2_announce
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "请宣布：现在进入诉辩交换阶段，先由原告陈述诉讼请求和事实理由。",
+        "input": {"previous_agent_output": "$clerk_rights_notice.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $clerk_rights_notice.stdout
+
+  - id: plaintiff_claims
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent plaintiff
       --args-json '{
-        "prompt": "你是原告代理律师。书记员已宣布开庭（附后）。请宣读起诉状，陈述诉讼请求、事实与理由。参考你工作区中的 complaint.md。每个论点必须引用具体法条。",
-        "input": {"clerk_statement": "$clerk_opening.stdout"},
+        "prompt": "你是原告代理律师。请根据上一段书记员发言，陈述诉讼请求、事实与理由。每个核心论点必须附法律依据。",
+        "input": {"previous_agent_output": "$clerk_phase2_announce.stdout"},
         "schema": {
           "type": "object",
           "properties": {
-            "claims": {"type": "array", "items": {"type": "string"}},
-            "facts_and_reasons": {"type": "string"},
+            "statement": {"type": "string"},
             "legal_basis": {"type": "array", "items": {"type": "string"}}
           },
-          "required": ["claims", "facts_and_reasons", "legal_basis"]
+          "required": ["statement", "legal_basis"]
         }
       }'
-    stdin: $clerk_opening.stdout
+    stdin: $clerk_phase2_announce.stdout
 
   - id: defendant_defense
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent defendant
       --args-json '{
-        "prompt": "你是被告代理律师。原告已陈述诉讼请求和事实理由（附后）。请宣读答辩状，逐一回应。参考你工作区中的 defense.md。特别注意审查程序性问题：诉讼时效、管辖权、主体资格。",
-        "input": {"plaintiff_complaint": "$plaintiff_complaint.stdout"},
+        "prompt": "你是被告代理律师。请基于原告发言逐项答辩，优先攻击其借款关系成立与实际交付证明链。",
+        "input": {"previous_agent_output": "$plaintiff_claims.stdout"},
         "schema": {
           "type": "object",
           "properties": {
-            "defense_points": {"type": "array", "items": {"type": "string"}},
-            "procedural_objections": {"type": "array", "items": {"type": "string"}},
+            "statement": {"type": "string"},
             "legal_basis": {"type": "array", "items": {"type": "string"}}
           },
-          "required": ["defense_points"]
+          "required": ["statement", "legal_basis"]
         }
       }'
-    stdin: $plaintiff_complaint.stdout
+    stdin: $plaintiff_claims.stdout
 
-  # ══════════════════════════════════════
-  # Phase 2: 举证质证（循环 N 轮）
-  # ══════════════════════════════════════
-
-  - id: clerk_evidence_phase
+  # Phase 3: 举证质证（第1轮）
+  - id: clerk_phase3_announce
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent clerk
       --args-json '{
-        "prompt": "宣布进入举证质证环节。首先由原告方举证。",
+        "prompt": "请宣布：现在进入举证质证第一轮，先由原告举证。",
+        "input": {"previous_agent_output": "$defendant_defense.stdout"},
         "schema": {
           "type": "object",
-          "properties": {"announcement": {"type": "string"}},
-          "required": ["announcement"]
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
         }
       }'
+    stdin: $defendant_defense.stdout
 
-  - id: evidence_rounds
-    lobster: evidence-round.lobster
-    args:
-      plaintiff_complaint: $plaintiff_complaint.stdout
-      defendant_defense: $defendant_defense.stdout
-    loop:
-      max_iterations: 3
-      condition: >
-        echo "$LOBSTER_LOOP_JSON" | python3 -c "
-        import json,sys
-        def parse_json_like(value):
-          if isinstance(value, dict):
-            return value
-          if isinstance(value, str):
-            try:
-              return json.loads(value)
-            except Exception:
-              return {}
-          return {}
+  - id: plaintiff_evidence_round1
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent plaintiff
+      --args-json '{
+        "prompt": "你是原告代理律师。请在第一轮举证中提交关键证据，必须同时说明借款合意证据和实际交付证据。",
+        "input": {"previous_agent_output": "$clerk_phase3_announce.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"},
+            "evidence_list": {"type": "array", "items": {"type": "string"}}
+          },
+          "required": ["statement", "evidence_list"]
+        }
+      }'
+    stdin: $clerk_phase3_announce.stdout
 
-        data = json.load(sys.stdin)
-        round_data = parse_json_like(data)
+  - id: defendant_cross_round1
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent defendant
+      --args-json '{
+        "prompt": "你是被告代理律师。请对原告第一轮证据进行三性质证（真实性、合法性、关联性），重点攻击实际交付证明不足。",
+        "input": {"previous_agent_output": "$plaintiff_evidence_round1.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"},
+            "three_nature_challenges": {"type": "array", "items": {"type": "string"}}
+          },
+          "required": ["statement", "three_nature_challenges"]
+        }
+      }'
+    stdin: $plaintiff_evidence_round1.stdout
 
-        pe = parse_json_like(round_data.get('plaintiff_evidence', {}))
-        de = parse_json_like(round_data.get('defendant_evidence', {}))
-        px = parse_json_like(round_data.get('plaintiff_cross_exam', {}))
-        plaintiff_done = bool(pe.get('no_more_evidence')) or bool(px.get('no_more_evidence'))
-        defendant_done = bool(de.get('no_more_evidence'))
-        global_done = bool(round_data.get('no_more_evidence'))
+  - id: judge_question_round1
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent judge
+      --args-json '{
+        "prompt": "你是审判长。请针对第一轮举证质证结果提出审查性问题，重点围绕借款是否实际交付。",
+        "input": {"previous_agent_output": "$defendant_cross_round1.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $defendant_cross_round1.stdout
 
-        stop = global_done or (plaintiff_done and defendant_done)
-        sys.exit(1 if stop else 0)
-        "
+  # Phase 4: 举证质证（第2轮）
+  - id: clerk_phase4_announce
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "请宣布：现在进入举证质证第二轮，由被告举证，原告随后质证。",
+        "input": {"previous_agent_output": "$judge_question_round1.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $judge_question_round1.stdout
 
-  # ══════════════════════════════════════
-  # Phase 3: 法庭辩论
-  # ══════════════════════════════════════
+  - id: defendant_evidence_round2
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent defendant
+      --args-json '{
+        "prompt": "你是被告代理律师。请在第二轮提交反证，重点说明为何原告不能证明借款实际交付。",
+        "input": {"previous_agent_output": "$clerk_phase4_announce.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"},
+            "evidence_list": {"type": "array", "items": {"type": "string"}}
+          },
+          "required": ["statement", "evidence_list"]
+        }
+      }'
+    stdin: $clerk_phase4_announce.stdout
+
+  - id: plaintiff_cross_round2
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent plaintiff
+      --args-json '{
+        "prompt": "你是原告代理律师。请对被告第二轮证据进行三性质证并反驳其结论。",
+        "input": {"previous_agent_output": "$defendant_evidence_round2.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"},
+            "three_nature_challenges": {"type": "array", "items": {"type": "string"}}
+          },
+          "required": ["statement", "three_nature_challenges"]
+        }
+      }'
+    stdin: $defendant_evidence_round2.stdout
+
+  - id: judge_question_round2
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent judge
+      --args-json '{
+        "prompt": "你是审判长。请针对第二轮争点继续发问，并明确引导双方围绕借款实际交付进行说明。",
+        "input": {"previous_agent_output": "$plaintiff_cross_round2.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $plaintiff_cross_round2.stdout
+
+  # Phase 5: 法庭辩论
+  - id: clerk_phase5_announce
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "请宣布：举证质证结束，现在进入法庭辩论阶段。",
+        "input": {"previous_agent_output": "$judge_question_round2.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $judge_question_round2.stdout
 
   - id: judge_focus_issues
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent judge
       --args-json '{
-        "prompt": "你是审判长。举证质证已结束。请根据全部庭审记录归纳本案争议焦点（2-4个）。这是庭审最关键的步骤。格式：根据双方诉辩意见和举证质证情况，本庭归纳本案争议焦点如下：……",
-        "input": {
-          "plaintiff_complaint": "$plaintiff_complaint.stdout",
-          "defendant_defense": "$defendant_defense.stdout",
-          "evidence_record": "$evidence_rounds.stdout"
-        },
+        "prompt": "你是审判长。请归纳本案争议焦点（2-4项），并明确双方围绕焦点辩论。",
+        "input": {"previous_agent_output": "$clerk_phase5_announce.stdout"},
         "schema": {
           "type": "object",
           "properties": {
-            "focus_issues": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "issue_number": {"type": "integer"},
-                  "description": {"type": "string"},
-                  "plaintiff_position": {"type": "string"},
-                  "defendant_position": {"type": "string"}
-                }
-              }
-            },
-            "announcement": {"type": "string"}
+            "statement": {"type": "string"},
+            "focus_issues": {"type": "array", "items": {"type": "string"}}
           },
-          "required": ["focus_issues", "announcement"]
+          "required": ["statement", "focus_issues"]
         }
       }'
+    stdin: $clerk_phase5_announce.stdout
     approval: required
 
   - id: plaintiff_debate
@@ -155,14 +292,15 @@ steps:
       openclaw.invoke --tool llm-task --action json
       --agent plaintiff
       --args-json '{
-        "prompt": "审判长已归纳争议焦点（附后）。请围绕每一个争议焦点进行有力辩论。每个论点引用具体法条和已质证的证据。",
-        "input": {"focus_issues": "$judge_focus_issues.stdout"},
+        "prompt": "你是原告代理律师。请围绕审判长归纳的争议焦点进行辩论，每个焦点都要给出法律依据。",
+        "input": {"previous_agent_output": "$judge_focus_issues.stdout"},
         "schema": {
           "type": "object",
           "properties": {
-            "arguments": {"type": "array", "items": {"type": "object", "properties": {"issue": {"type": "string"}, "argument": {"type": "string"}, "legal_basis": {"type": "string"}}}}
+            "statement": {"type": "string"},
+            "legal_basis": {"type": "array", "items": {"type": "string"}}
           },
-          "required": ["arguments"]
+          "required": ["statement", "legal_basis"]
         }
       }'
     stdin: $judge_focus_issues.stdout
@@ -172,79 +310,106 @@ steps:
       openclaw.invoke --tool llm-task --action json
       --agent defendant
       --args-json '{
-        "prompt": "审判长已归纳争议焦点，原告已辩论（均附后）。请针对每个焦点进行反驳和防御性论证。",
-        "input": {
-          "focus_issues": "$judge_focus_issues.stdout",
-          "plaintiff_arguments": "$plaintiff_debate.stdout"
-        },
+        "prompt": "你是被告代理律师。请围绕同一争议焦点进行反驳，强调原告举证不足与证明标准未达成。",
+        "input": {"previous_agent_output": "$plaintiff_debate.stdout"},
         "schema": {
           "type": "object",
           "properties": {
-            "rebuttals": {"type": "array", "items": {"type": "object", "properties": {"issue": {"type": "string"}, "rebuttal": {"type": "string"}, "legal_basis": {"type": "string"}}}}
+            "statement": {"type": "string"},
+            "legal_basis": {"type": "array", "items": {"type": "string"}}
           },
-          "required": ["rebuttals"]
+          "required": ["statement", "legal_basis"]
         }
       }'
     stdin: $plaintiff_debate.stdout
 
-  # ══════════════════════════════════════
-  # Phase 4: 最后陈述与宣判
-  # ══════════════════════════════════════
+  # Phase 6: 最后陈述
+  - id: clerk_phase6_announce
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "请宣布：法庭辩论结束，现在进入最后陈述阶段，先由原告后由被告陈述。",
+        "input": {"previous_agent_output": "$defendant_debate.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $defendant_debate.stdout
 
-  - id: plaintiff_final
+  - id: plaintiff_final_statement
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent plaintiff
       --args-json '{
-        "prompt": "法庭辩论已结束。请进行最后陈述，简明总结全部诉讼请求和核心理由。",
+        "prompt": "你是原告代理律师。请作最后陈述，简明总结请求、事实与法律依据。",
+        "input": {"previous_agent_output": "$clerk_phase6_announce.stdout"},
         "schema": {
           "type": "object",
-          "properties": {"final_statement": {"type": "string"}},
-          "required": ["final_statement"]
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
         }
       }'
+    stdin: $clerk_phase6_announce.stdout
 
-  - id: defendant_final
+  - id: defendant_final_statement
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent defendant
       --args-json '{
-        "prompt": "法庭辩论已结束。请进行最后陈述，简明总结全部抗辩理由。",
+        "prompt": "你是被告代理律师。请作最后陈述，简明总结抗辩主张与法律依据。",
+        "input": {"previous_agent_output": "$plaintiff_final_statement.stdout"},
         "schema": {
           "type": "object",
-          "properties": {"final_statement": {"type": "string"}},
-          "required": ["final_statement"]
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
         }
       }'
+    stdin: $plaintiff_final_statement.stdout
+
+  # Phase 7: 宣判
+  - id: clerk_phase7_announce
+    command: >
+      openclaw.invoke --tool llm-task --action json
+      --agent clerk
+      --args-json '{
+        "prompt": "请宣布：最后陈述结束，现在进入宣判阶段，请审判长宣读判决。",
+        "input": {"previous_agent_output": "$defendant_final_statement.stdout"},
+        "schema": {
+          "type": "object",
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
+        }
+      }'
+    stdin: $defendant_final_statement.stdout
 
   - id: judge_verdict
     command: >
       openclaw.invoke --tool llm-task --action json
       --agent judge
       --args-json '{
-        "prompt": "庭审结束。请根据全部庭审记录，使用法律三段论，出具《模拟民事判决书》和《诉讼风险推演报告》。必须引用具体法条。判决书使用标准格式。风险报告需包含：胜诉概率、风险点、上诉理由分析、和解建议。",
-        "input": {
-          "plaintiff_complaint": "$plaintiff_complaint.stdout",
-          "defendant_defense": "$defendant_defense.stdout",
-          "evidence_record": "$evidence_rounds.stdout",
-          "focus_issues": "$judge_focus_issues.stdout",
-          "plaintiff_debate": "$plaintiff_debate.stdout",
-          "defendant_debate": "$defendant_debate.stdout",
-          "plaintiff_final": "$plaintiff_final.stdout",
-          "defendant_final": "$defendant_final.stdout"
-        },
+        "prompt": "你是审判长。请基于全案事实与举证质证情况，按法律三段论宣读判决。民间借贷争议必须审查借款实际交付（民法典第679条）。",
+        "input": {"previous_agent_output": "$clerk_phase7_announce.stdout"},
         "schema": {
           "type": "object",
           "properties": {
             "judgment": {"type": "string"},
-            "risk_report": {"type": "string"},
-            "win_probability_plaintiff": {"type": "number"},
-            "key_risks": {"type": "array", "items": {"type": "string"}},
-            "settlement_suggestion": {"type": "string"}
+            "reasoning": {"type": "string"}
           },
-          "required": ["judgment", "risk_report", "win_probability_plaintiff"]
+          "required": ["judgment", "reasoning"]
         }
       }'
+    stdin: $clerk_phase7_announce.stdout
     approval: required
 
   - id: clerk_closing
@@ -252,10 +417,14 @@ steps:
       openclaw.invoke --tool llm-task --action json
       --agent clerk
       --args-json '{
-        "prompt": "宣布休庭。",
+        "prompt": "请宣布庭审结束并闭庭。",
+        "input": {"previous_agent_output": "$judge_verdict.stdout"},
         "schema": {
           "type": "object",
-          "properties": {"closing": {"type": "string"}},
-          "required": ["closing"]
+          "properties": {
+            "statement": {"type": "string"}
+          },
+          "required": ["statement"]
         }
       }'
+    stdin: $judge_verdict.stdout

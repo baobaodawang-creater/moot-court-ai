@@ -65,13 +65,13 @@ chmod +x scripts/setup.sh scripts/setup-auth.sh scripts/init-case.sh scripts/run
 ./scripts/setup-auth.sh
 
 # 5. 分发测试案件材料到各 agent workspace
-./scripts/init-case.sh test-cases/contract-dispute/
+./scripts/init-case.sh cases/sample_case/
 
 # 6. 直接运行庭审工作流（命令行模式）
-./scripts/run-trial.sh contract-dispute
+./scripts/run-trial.sh sample-case
 
 # 7. 查看结果
-# output/contract-dispute-judgment-*.md
+# output/sample-case-judgment-*.md
 ```
 
 如需 WebChat 交互模式，再单独启动：
@@ -142,6 +142,14 @@ moot-court-ai/
 ├── laws/                              # 法律知识库源文件
 │   └── README.md                      # 法律数据准备指南
 │
+├── cases/                             # 标准案件输入（推荐）
+│   └── sample_case/                   # 民间借贷纠纷样例
+│       ├── case-brief.md
+│       ├── complaint.md
+│       ├── defense.md
+│       ├── plaintiff-evidence/
+│       └── defendant-evidence/
+│
 ├── test-cases/                        # 测试案件
 │   └── contract-dispute/              # 借款合同纠纷
 │       ├── case-brief.md
@@ -198,6 +206,33 @@ moot-court-ai/
 | | 辩论 | 原告→被告 | 围绕焦点的逻辑博弈 |
 | Phase 4 | 最后陈述 | 原告→被告 | 总结性发言 |
 | | 宣判 | 法官 | 输出判决书 + 风险推演报告 |
+
+## 使用方法（推荐）
+
+### 1) 准备案件材料
+
+将案件按以下结构放在 `cases/<你的案件名>/`：
+
+```text
+cases/<your-case>/
+├── case-brief.md
+├── complaint.md
+├── defense.md
+├── plaintiff-evidence/
+└── defendant-evidence/
+```
+
+### 2) 初始化并运行
+
+```bash
+./scripts/init-case.sh cases/sample_case/
+./scripts/run-trial.sh sample-case
+```
+
+### 3) 查看输出
+
+- 判决书：`output/*-judgment-*.md`
+- 原始日志：`output/*-raw-*.log`
 
 ## 已知限制
 
